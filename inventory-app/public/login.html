@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sign in � Inventory</title>
+    <style>
+        :root {
+            --bg: #f3f5f4;
+            --surface: #ffffff;
+            --text: #1d2a27;
+            --muted: #5f6f6a;
+            --line: #d5dcd9;
+            --accent: #1f6f5c;
+            --accent-text: #ffffff;
+            --error: #b3261e;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #14201d;
+                --surface: #1c2b27;
+                --text: #e6eeeb;
+                --muted: #9db0aa;
+                --line: #33463f;
+                --accent: #4cb597;
+                --accent-text: #0f1b18;
+                --error: #ff8a80;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            padding: 1rem;
+        }
+
+        main {
+            width: 100%;
+            max-width: 22rem;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 2rem;
+        }
+
+        h1 {
+            margin: 0 0 0.25rem;
+            font-size: 1.5rem;
+        }
+
+        p.sub {
+            margin: 0 0 1.5rem;
+            color: var(--muted);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        input {
+            display: block;
+            width: 100%;
+            margin-top: 0.35rem;
+            padding: 0.6rem 0.7rem;
+            font: inherit;
+            color: var(--text);
+            background: var(--bg);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+        }
+
+            input:focus-visible, button:focus-visible {
+                outline: 3px solid var(--accent);
+                outline-offset: 2px;
+            }
+
+        .actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 0.65rem;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 6px;
+            border: 1px solid var(--accent);
+        }
+
+            button.primary {
+                background: var(--accent);
+                color: var(--accent-text);
+            }
+
+            button.secondary {
+                background: transparent;
+                color: var(--accent);
+            }
+
+        #message {
+            min-height: 1.25rem;
+            margin: 1rem 0 0;
+            font-size: 0.9rem;
+        }
+
+            #message.error {
+                color: var(--error);
+            }
+
+            #message.ok {
+                color: var(--accent);
+            }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Inventory</h1>
+        <p class="sub">Sign in to view and add items.</p>
+
+        <form id="login-form">
+            <label>
+                Username
+                <input id="username" name="username" autocomplete="username" required>
+            </label>
+            <label>
+                Password
+                <input id="password" name="password" type="password" autocomplete="current-password" required>
+            </label>
+            <div class="actions">
+                <button type="submit" class="primary">Sign in</button>
+                <button type="button" id="register" class="secondary">Create account</button>
+            </div>
+            <p id="message" role="status"></p>
+        </form>
+    </main>
+
+    <script>
+    const form = document.getElementById('login-form');
+    const message = document.getElementById('message');
+
+    function show(text, type) {
+      message.textContent = text;
+      message.className = type;
+    }
+
+    async function send(url) {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      if (!username || !password) {
+        show('Enter a username and password.', 'error');
+        return null;
+      }
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        show(data.error || 'Something went wrong.', 'error');
+        return null;
+      }
+      return data;
+    }
+
+    // Sign in
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const user = await send('/api/login');
+      if (user) location.href = '/index.html';
+    });
+
+    // Create account, then sign in 
+    document.getElementById('register').addEventListener('click', async () => {
+      const created = await send('/api/register');
+      if (!created) return;
+      const user = await send('/api/login');
+      if (user) location.href = '/index.html';
+    });
+
+    // Skip form if sign in.
+    fetch('/api/me').then(r => r.json()).then(me => {
+      if (me) location.href = '/index.html';
+    });
+    </script>
+</body>
+</html>

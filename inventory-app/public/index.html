@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Inventory</title>
+    <style>
+        :root {
+            --bg: #f3f5f4;
+            --surface: #ffffff;
+            --text: #1d2a27;
+            --muted: #5f6f6a;
+            --line: #d5dcd9;
+            --accent: #1f6f5c;
+            --accent-text: #ffffff;
+            --danger: #b3261e;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #14201d;
+                --surface: #1c2b27;
+                --text: #e6eeeb;
+                --muted: #9db0aa;
+                --line: #33463f;
+                --accent: #4cb597;
+                --accent-text: #0f1b18;
+                --danger: #ff8a80;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            padding: 1rem 1.5rem;
+            background: var(--surface);
+            border-bottom: 1px solid var(--line);
+        }
+
+            header h1 {
+                margin: 0;
+                font-size: 1.25rem;
+            }
+
+        .who {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--muted);
+        }
+
+        main {
+            max-width: 46rem;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        form#add-form {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+
+        input {
+            font: inherit;
+            padding: 0.55rem 0.7rem;
+            color: var(--text);
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+        }
+
+        #item-name {
+            flex: 1 1 12rem;
+        }
+
+        #item-qty {
+            width: 6rem;
+        }
+
+        button {
+            font: inherit;
+            font-weight: 600;
+            padding: 0.5rem 0.9rem;
+            cursor: pointer;
+            border-radius: 6px;
+            border: 1px solid var(--accent);
+            background: transparent;
+            color: var(--accent);
+        }
+
+            button.primary {
+                background: var(--accent);
+                color: var(--accent-text);
+            }
+
+            button.danger {
+                border-color: var(--danger);
+                color: var(--danger);
+            }
+
+            input:focus-visible, button:focus-visible {
+                outline: 3px solid var(--accent);
+                outline-offset: 2px;
+            }
+
+        .table-wrap {
+            overflow-x: auto;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.7rem 1rem;
+            border-bottom: 1px solid var(--line);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        th {
+            font-size: 0.85rem;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+            td.qty, th.qty {
+                text-align: right;
+                width: 6rem;
+            }
+
+        td.actions {
+            white-space: nowrap;
+            text-align: right;
+        }
+
+            td.actions button {
+                margin-left: 0.4rem;
+                padding: 0.3rem 0.65rem;
+            }
+
+        td input {
+            width: 100%;
+            padding: 0.3rem 0.5rem;
+        }
+
+        td.qty input {
+            text-align: right;
+        }
+
+        #status {
+            min-height: 1.25rem;
+            margin: 0 0 1rem;
+            font-size: 0.9rem;
+        }
+
+            #status.error {
+                color: var(--danger);
+            }
+
+            #status.ok {
+                color: var(--accent);
+            }
+
+        .empty {
+            padding: 1.5rem 1rem;
+            color: var(--muted);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Inventory</h1>
+        <div class="who">
+            <span id="who"></span>
+            <button id="logout" type="button">Sign out</button>
+        </div>
+    </header>
+
+    <main>
+        <form id="add-form">
+            <input id="item-name" placeholder="Item name" aria-label="Item name" required>
+            <input id="item-qty" type="number" min="1" value="1" aria-label="Quantity" required>
+            <button type="submit" class="primary">Add item</button>
+        </form>
+
+        <p id="status" role="status"></p>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="qty">Quantity</th>
+                        <th id="actions-head"></th>
+                    </tr>
+                </thead>
+                <tbody id="rows"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+    let me = null;
+    const rows = document.getElementById('rows');
+    const statusEl = document.getElementById('status');
+
+    function setStatus(text, type) {
+      statusEl.textContent = text || '';
+      statusEl.className = type || '';
+    }
+
+    // sends JSON, redirects to login if the session expired
+    async function api(url, method = 'GET', body) {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      if (res.status === 401) { location.href = '/login.html'; return null; }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+
+    
+    function el(tag, props = {}, ...children) {
+      const node = document.createElement(tag);
+      Object.assign(node, props);
+      children.forEach(c => node.append(c));
+      return node;
+    }
+
+    async function loadItems() {
+      const items = await api('/api/items');
+      if (!items) return;
+      rows.replaceChildren();
+
+      if (items.length === 0) {
+        const td = el('td', { colSpan: 3, className: 'empty' }, 'No items yet. Add the first one above.');
+        rows.append(el('tr', {}, td));
+        return;
+      }
+      items.forEach(item => rows.append(buildRow(item)));
+    }
+
+    function buildRow(item) {
+      const tr = el('tr');
+      tr.append(el('td', {}, item.name), el('td', { className: 'qty' }, String(item.quantity)));
+
+      const actions = el('td', { className: 'actions' });
+      if (me.role === 'admin') {
+        const edit = el('button', { type: 'button' }, 'Edit');
+        edit.addEventListener('click', () => startEdit(tr, item));
+        const del = el('button', { type: 'button', className: 'danger' }, 'Delete');
+        del.addEventListener('click', () => removeItem(item));
+        actions.append(edit, del);
+      }
+      tr.append(actions);
+      return tr;
+    }
+
+    // Admin: turn the row into inputs
+    function startEdit(tr, item) {
+      const nameInput = el('input', { value: item.name, ariaLabel: 'Item name' });
+      const qtyInput = el('input', { type: 'number', min: 0, value: item.quantity, ariaLabel: 'Quantity' });
+
+      const save = el('button', { type: 'button', className: 'primary' }, 'Save');
+      const cancel = el('button', { type: 'button' }, 'Cancel');
+      save.addEventListener('click', async () => {
+        try {
+          await api('/api/items/' + item.id, 'PUT', {
+            name: nameInput.value.trim(),
+            quantity: Number(qtyInput.value)
+          });
+          setStatus('Item updated.', 'ok');
+          loadItems();
+        } catch (err) {
+          setStatus(err.message.includes('UNIQUE') ? 'That name already exists.' : err.message, 'error');
+        }
+      });
+      cancel.addEventListener('click', loadItems);
+
+      tr.replaceChildren(
+        el('td', {}, nameInput),
+        el('td', { className: 'qty' }, qtyInput),
+        el('td', { className: 'actions' }, save, cancel)
+      );
+      nameInput.focus();
+    }
+
+    // Admin: delete after confirmation
+    async function removeItem(item) {
+      if (!confirm('Delete "' + item.name + '"?')) return;
+      try {
+        await api('/api/items/' + item.id, 'DELETE');
+        setStatus('Item deleted.', 'ok');
+        loadItems();
+      } catch (err) {
+        setStatus(err.message, 'error');
+      }
+    }
+
+    // Any user: add item  merges duplicates into the existing
+    document.getElementById('add-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const nameInput = document.getElementById('item-name');
+      const qtyInput = document.getElementById('item-qty');
+      const name = nameInput.value.trim();
+      const quantity = Number(qtyInput.value);
+      if (!name || quantity < 1) return setStatus('Enter a name and a quantity of at least 1.', 'error');
+
+      try {
+        await api('/api/items', 'POST', { name, quantity });
+        setStatus('Added ' + quantity + ' � ' + name + '.', 'ok');
+        nameInput.value = '';
+        qtyInput.value = 1;
+        nameInput.focus();
+        loadItems();
+      } catch (err) {
+        setStatus(err.message, 'error');
+      }
+    });
+
+    document.getElementById('logout').addEventListener('click', async () => {
+      await api('/api/logout', 'POST');
+      location.href = '/login.html';
+    });
+
+    // check who is logged in, then load the table
+    (async function init() {
+      me = await api('/api/me');
+      if (!me) { location.href = '/login.html'; return; }
+      document.getElementById('who').textContent = me.username + ' (' + me.role + ')';
+      if (me.role === 'admin') document.getElementById('actions-head').textContent = 'Actions';
+      loadItems();
+    })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+C:\Users\admin\source\repos\inventory-app\inventory-app\obj\Debug\inventory-app.njsproj.AssemblyReference.cache
+C:\Users\admin\source\repos\inventory-app\inventory-app\obj\Debug\inventory-app.njsproj.CoreCompileInputs.cache
+C:\Users\admin\source\repos\inventory-app\inventory-app\bin\Microsoft.NodejsTools.WebRole.dll
